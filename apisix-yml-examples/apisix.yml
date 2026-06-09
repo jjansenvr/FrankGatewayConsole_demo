@@ -1,5 +1,5 @@
 upstreams:
-  - id: afval-prod3
+  - id: afval-prod
     name: Afval Service (prod)
     type: roundrobin
     nodes:
@@ -161,7 +161,7 @@ routes:
     plugins:
       jwt-auth: {}
     status: 1
-  - id: lala-laal
+  - id: afval-prod-route
     uri: /fysiekeleefomgeving/afval/lala
     upstream_id: afval-prod
     methods:
