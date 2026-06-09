@@ -1,0 +1,174 @@
+upstreams:
+  - id: afval-prod3
+    name: Afval Service (prod)
+    type: roundrobin
+    nodes:
+      host.docker.internal:3001: 1
+    discovery_type: test
+  - id: bag-prod
+    name: BAG Service (prod)
+    type: roundrobin
+    nodes:
+      host.docker.internal:3002: 1
+      host.docker.internal:3012: 1
+  - id: financien-prod
+    name: Financiën Service (prod)
+    type: roundrobin
+    nodes:
+      host.docker.internal:3003: 1
+  - id: veiligheidenvergunningen-prod
+    name: Veiligheid en Vergunningen Service (prod)
+    type: roundrobin
+    nodes:
+      host.docker.internal:3004: 1
+  - id: auth-prod
+    name: Auth Service (prod)
+    type: roundrobin
+    nodes:
+      host.docker.internal:3005: 1
+      host.docker.internal:3015: 1
+services:
+  - id: afval-api-svc
+    name: Afval API
+    upstream_id: afval-prod
+    plugins:
+      cors:
+        allow_origins: https://fysiekeleefomgeving.gemeente.nl
+        allow_methods: GET,POST,PUT,DELETE
+  - id: bag-api-svc
+    name: BAG API
+    upstream_id: bag-prod
+    plugins:
+      cors:
+        allow_origins: '*'
+        allow_methods: GET
+  - id: financien-api-svc
+    name: Financiën API
+    upstream_id: financien-prod
+  - id: veiligheidenvergunningen-api-svc
+    name: Veiligheid en Vergunningen API
+    upstream_id: veiligheidenvergunningen-prod
+plugin_configs:
+  - id: rate-limit-plugins
+    plugins:
+      limit-count:
+        count: 100
+        time_window: 60
+        rejected_code: 429
+  - id: auth-required-plugins
+    plugins:
+      key-auth: {}
+  - id: audit-log-plugins
+    plugins:
+      http-logger:
+        uri: http://host.docker.internal:9200/audit/_doc
+        batch_max_size: 100
+consumers:
+  - username: fysiekeleefomgeving_consumer
+    plugins:
+      key-auth:
+        key: fle-api-key-abc123
+  - username: ondersteuning_consumer
+    plugins:
+      key-auth:
+        key: ond-api-key-def456
+  - username: openbareordeenveiligheid_consumer
+    plugins:
+      key-auth:
+        key: oov-api-key-ghi789
+      jwt-auth:
+        key: oov-service
+        secret: jwt-secret-oov
+global_rules:
+  - id: security-headers-global-rule
+    plugins:
+      response-rewrite:
+        headers:
+          set:
+            X-Frame-Options: SAMEORIGIN
+            X-Content-Type-Options: nosniff
+routes:
+  - id: afval-containers-list-route
+    name: Afval Containers List
+    uri: /fysiekeleefomgeving/afval/containers
+    methods:
+      - GET
+    service_id: afval-api-svc
+    plugin_config_id: auth-required-plugins
+    status: 1
+  - id: afval-meldingen-create-route
+    name: Afval Melding Create
+    uri: /fysiekeleefomgeving/afval/meldingen
+    methods:
+      - POST
+    service_id: afval-api-svc
+    plugin_config_id: rate-limit-plugins
+    status: 1
+  - id: bag-adressen-list-route
+    name: BAG Adressen List
+    uri: /fysiekeleefomgeving/bag/adressen
+    methods:
+      - GET
+    service_id: bag-api-svc
+    plugin_config_id: audit-log-plugins
+    status: 1
+  - id: bag-panden-list-route
+    name: BAG Panden List
+    uri: /fysiekeleefomgeving/bag/panden
+    methods:
+      - GET
+    service_id: bag-api-svc
+    status: 1
+  - id: financien-facturen-list-route
+    name: Facturen List
+    uri: /ondersteuning/financien/facturen
+    methods:
+      - GET
+    service_id: financien-api-svc
+    plugin_config_id: auth-required-plugins
+    status: 1
+  - id: financien-facturen-create-route
+    name: Facturen Create
+    uri: /ondersteuning/financien/facturen
+    methods:
+      - POST
+    service_id: financien-api-svc
+    plugin_config_id: audit-log-plugins
+    status: 1
+  - id: veiligheidenvergunningen-meldingen-list-route
+    name: Veiligheid Meldingen List
+    uri: /openbareordeenveiligheid/veiligheidenvergunningen/meldingen
+    methods:
+      - GET
+      - POST
+    service_id: veiligheidenvergunningen-api-svc
+    plugin_config_id: auth-required-plugins
+    status: 1
+  - id: auth-login-create-route
+    name: Login
+    uri: /auth/login
+    methods:
+      - POST
+    upstream_id: auth-prod
+    plugin_config_id: rate-limit-plugins
+    status: 1
+  - id: auth-refresh-create-route
+    name: Refresh Token
+    uri: /auth/refresh
+    methods:
+      - POST
+    upstream_id: auth-prod
+    plugins:
+      jwt-auth: {}
+    status: 1
+  - id: lala-laal
+    uri: /fysiekeleefomgeving/afval/lala
+    upstream_id: afval-prod
+    methods:
+      - GET
+      - POST
+      - PUT
+      - DELETE
+      - HEAD
+
+#END 
